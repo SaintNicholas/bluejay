@@ -1088,36 +1088,38 @@ extension Bluejay: CBCentralManagerDelegate {
             fatalError("No background restorer found when restoring a connecting peripheral.")
         }
 
-        connect(peripheral.identifier, timeout: .seconds(15)) { result in
-            switch result {
-            case .success(let peripheral):
-                debugLog("Did restore connection to peripheral: \(peripheral.description)")
+        // This is not the way Bluejay was intended to work, but it's something that works for our use case, and prevents a
+        // crash that we were seeing. This isn't intended to be a long term solution to the problem, but rather a short
+        // term solution that can be used to mitigate a crash we are seeing while the Bluejay team looks into the real issue
+        // (https://github.com/steamclock/bluejay/issues/206).
+        //
+        // Bluejay intends the didRestoreConnection callback to be called when a connection to a peripheral was successfully restored,
+        // and didFailToRestoreConnection to be called when a connection was unable to be successfully restored. However, in this
+        // case we are restoring a 'connecting' peripheral. We are considering a successful restoration of a 'connecting' peripheral
+        // to be just get the system back into a 'connecting' state with the peripheral, we aren't requiring an actual connection
+        // to the peripheral.
+        //
+        // The crash we were seeing was because iOS would sometimes, upon State Restoration, start the restoration of
+        // a 'connecting' peripheral, and then immediately say that peripheral disconnected. Because, in this function,
+        // we were waiting 15s for the connection to complete before considering the restoration complete, the disconnect
+        // would still happen when we were still doing restoration, and that was causing problems. To mitigate that, we
+        // immediately consider restoration completed (as described above), so if we are disconnected, it's happening after
+        // restoration is complete, and things appear to be ok.
+        let backgroundRestoreCompletion = backgroundRestorer.didRestoreConnection(to: peripheral.identifier)
 
-                let backgroundRestoreCompletion = backgroundRestorer.didRestoreConnection(to: peripheral)
+        // We want to restore to a 'connecting' state, since that's what iOS is telling us to do. We don't know
+        // if that previous 'connecting' state had any timeout, so just set it to try connecting indefinitely.
+        connect(peripheral.identifier) { _ in }
 
-                switch backgroundRestoreCompletion {
-                case .callback(let userCallback):
-                    userCallback()
-                case .continue:
-                    break
-                }
-            case .failure(let error):
-                debugLog("Did fail to to restore connection with error: \(error.localizedDescription)")
-
-                let backgroundRestoreCompletion = backgroundRestorer.didFailToRestoreConnection(
-                    to: peripheral.identifier,
-                    error: error
-                )
-
-                switch backgroundRestoreCompletion {
-                case .callback(let userCallback):
-                    userCallback()
-                case .continue:
-                    break
-                }
-            }
-            self.endStartupBackgroundTask()
+        switch backgroundRestoreCompletion {
+        case .callback(let userCallback):
+            userCallback()
+        case .continue:
+            break
         }
+
+        Logger.log(level: .Debug, message: "Ending background task from restoreConnecting.")
+        self.endStartupBackgroundTask()
     }
 
     /**
