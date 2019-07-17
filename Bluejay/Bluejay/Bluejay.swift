@@ -1100,16 +1100,15 @@ extension Bluejay: CBCentralManagerDelegate {
         // to the peripheral.
         //
         // The crash we were seeing was because iOS would sometimes, upon State Restoration, start the restoration of
-        // a 'connecting' peripheral, and then immediately say that peripheral disconnected. Because, in this function,
-        // we were waiting 15s for the connection to complete before considering the restoration complete, the disconnect
-        // would still happen when we were still doing restoration, and that was causing problems. To mitigate that, we
-        // immediately consider restoration completed (as described above), so if we are disconnected, it's happening after
-        // restoration is complete, and things appear to be ok.
+        // a 'connecting' peripheral, and then immediately say that peripheral disconnected. In this function we were
+        // waiting 15s for a connection to complete, so we were still restoring state when the disconnection
+        // occurred. The disconnection would cause the restoration information, such as the peripheral that was being
+        // put back into the 'connecting' state, to be lost. Then, iOS would auto-reconnect to the peripheral again,
+        // and Bluejay wouldn't be expecting it, and would crash.
+        //
+        // Now, we immediately consider the restoration to be complete immediately, and just start a connection,
+        // so if a disconnect happens, it's not during restoration, and Bluejay seems to handle it ok.
         let backgroundRestoreCompletion = backgroundRestorer.didRestoreConnection(to: peripheral.identifier)
-
-        // We want to restore to a 'connecting' state, since that's what iOS is telling us to do. We don't know
-        // if that previous 'connecting' state had any timeout, so just set it to try connecting indefinitely.
-        connect(peripheral.identifier) { _ in }
 
         switch backgroundRestoreCompletion {
         case .callback(let userCallback):
@@ -1119,6 +1118,10 @@ extension Bluejay: CBCentralManagerDelegate {
         }
 
         self.endStartupBackgroundTask()
+
+        // We want to restore to a 'connecting' state, since that's what iOS is telling us to do. We don't know
+        // if that previous 'connecting' state had any timeout, so just set it to try connecting indefinitely.
+        connect(peripheral.identifier) { _ in }
     }
 
     /**
