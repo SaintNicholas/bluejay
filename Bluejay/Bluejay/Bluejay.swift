@@ -1118,7 +1118,6 @@ extension Bluejay: CBCentralManagerDelegate {
             break
         }
 
-        Logger.log(level: .Debug, message: "Ending background task from restoreConnecting.")
         self.endStartupBackgroundTask()
     }
 
