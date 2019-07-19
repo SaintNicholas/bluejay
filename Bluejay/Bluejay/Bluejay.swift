@@ -1147,9 +1147,9 @@ extension Bluejay: CBCentralManagerDelegate {
             break
         }
 
-        for observer in connectionObservers {
-            observer.weakReference?.connected(to: connectedPeripheral!.identifier)
-        }
+        // In our testing, iOS was calling the didConnect callback once a 'connected' peripheral was successfully restored,
+        // so in that case the connected callback was called here, and when iOS called the didConnect callback, which caused
+        // problems. We removed it here so it's only called once after State Restoration is completed.
 
         endStartupBackgroundTask()
     }
@@ -1309,7 +1309,13 @@ extension Bluejay: CBCentralManagerDelegate {
 
         connectingCallback = nil
 
-        connectedPeripheral = connectingPeripheral
+        // This is not a good long term solution. Rather, it's a short term solution that works for our use case, until
+        // the Bluejay team can properly fix the issue.
+        // When State Restoration of a 'connected' peripheral occurs, Bluejay doesn't believe that this function will be called
+        // for the peripheral, but in our testing, it is. Bluejay clears out the connectingPeripheral variable, because it thinks
+        // the connection is complete, and that caused this line to crash. Instead, for that 1 case, just keep the connected
+        // peripheral and call the callbacks.
+        connectedPeripheral = connectingPeripheral ?? connectedPeripheral
         connectingPeripheral = nil
 
         precondition(connectedPeripheral != nil, "Connected peripheral is assigned a nil value despite Bluejay has successfully finished a connection.")
