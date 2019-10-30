@@ -9,6 +9,7 @@
 import CoreBluetooth
 import Foundation
 import XCGLogger
+import UIKit
 
 /**
  Bluejay is a simple wrapper around CoreBluetooth that focuses on making a common usage case as straight forward as possible: a single connected peripheral that the user is interacting with regularly (think most personal electronics devices that have an associated iOS app: fitness trackers, guitar amps, etc).
