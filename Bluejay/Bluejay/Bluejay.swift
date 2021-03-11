@@ -597,6 +597,16 @@ public class Bluejay: NSObject { //swiftlint:disable:this type_body_length
             completion?(.failure(BluejayError.notConnected))
         }
     }
+    
+    /**
+     Set the timeout of future connections. This does not affect the current connection.
+     
+     - Parameters:
+       - timeout: The timeout to set.
+     */
+    public func setFutureConnectionTimeout(_ timeout: Timeout) {
+        previousConnectionTimeout = timeout
+    }
 
     // MARK: - Actions
 
